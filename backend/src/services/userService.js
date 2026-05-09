@@ -32,8 +32,18 @@ const updateStudentStatus = async (userId, status) => {
   return await db.update(users).set({ status }).where(eq(users.id, userId)).returning();
 };
 
+const getNotifications = async (userId) => {
+  return await db.select().from(notifications).where(eq(notifications.userId, userId)).orderBy(desc(notifications.createdAt));
+};
+
+const markNotificationRead = async (id) => {
+  return await db.update(notifications).set({ isRead: true }).where(eq(notifications.id, id));
+};
+
 module.exports = {
   getAllStudents,
   getStudentHistory,
   updateStudentStatus,
+  getNotifications,
+  markNotificationRead,
 };

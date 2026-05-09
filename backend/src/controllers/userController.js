@@ -28,8 +28,28 @@ const updateStatus = async (req, res) => {
   }
 };
 
+const getNotifications = async (req, res) => {
+  try {
+    const notifications = await userService.getNotifications(req.user.id);
+    res.status(200).json(notifications);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const markNotificationRead = async (req, res) => {
+  try {
+    await userService.markNotificationRead(req.params.id);
+    res.status(200).json({ message: 'Notification marked as read' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   listStudents,
   studentHistory,
   updateStatus,
+  getNotifications,
+  markNotificationRead,
 };

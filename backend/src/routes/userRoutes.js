@@ -5,68 +5,38 @@ const { authenticate, authorize } = require('../utils/authMiddleware');
 const router = express.Router();
 
 router.use(authenticate);
-router.use(authorize('Librarian'));
 
 /**
  * @swagger
- * /api/users/students:
+ * /api/users/notifications:
  *   get:
- *     summary: List all students
+ *     summary: Get user notifications
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: List of students
+ *         description: List of notifications
  */
-router.get('/students', userController.listStudents);
+router.get('/notifications', userController.getNotifications);
 
 /**
  * @swagger
- * /api/users/students/{id}/history:
- *   get:
- *     summary: Get student borrowing history
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Student borrowing history
- */
-router.get('/students/:id/history', userController.studentHistory);
-
-/**
- * @swagger
- * /api/users/students/{id}/status:
+ * /api/users/notifications/{id}/read:
  *   put:
- *     summary: Update student account status
+ *     summary: Mark notification as read
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               status: { type: string, enum: [Active, Suspended] }
  *     responses:
  *       200:
- *         description: Status updated successfully
+ *         description: Notification marked as read
  */
-router.put('/students/:id/status', userController.updateStatus);
+router.put('/notifications/:id/read', userController.markNotificationRead);
+
+// Librarian specific routes
+router.get('/students', authorize('Librarian'), userController.listStudents);
+router.get('/students/:id/history', authorize('Librarian'), userController.studentHistory);
+router.put('/students/:id/status', authorize('Librarian'), userController.updateStatus);
 
 module.exports = router;
