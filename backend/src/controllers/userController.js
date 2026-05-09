@@ -9,6 +9,16 @@ const listStudents = async (req, res) => {
   }
 };
 
+const searchStudents = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const students = await userService.searchStudents(query);
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 const studentHistory = async (req, res) => {
   try {
     const history = await userService.getStudentHistory(req.params.id);
@@ -28,8 +38,29 @@ const updateStatus = async (req, res) => {
   }
 };
 
+const getNotifications = async (req, res) => {
+  try {
+    const notifications = await userService.getNotifications(req.user.id);
+    res.status(200).json(notifications);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const markNotificationRead = async (req, res) => {
+  try {
+    await userService.markNotificationRead(req.params.id);
+    res.status(200).json({ message: 'Notification marked as read' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   listStudents,
+  searchStudents,
   studentHistory,
   updateStatus,
+  getNotifications,
+  markNotificationRead,
 };
