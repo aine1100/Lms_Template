@@ -9,6 +9,16 @@ const listStudents = async (req, res) => {
   }
 };
 
+const searchStudents = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const students = await userService.searchStudents(query);
+    res.status(200).json(students);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 const studentHistory = async (req, res) => {
   try {
     const history = await userService.getStudentHistory(req.params.id);
@@ -48,6 +58,7 @@ const markNotificationRead = async (req, res) => {
 
 module.exports = {
   listStudents,
+  searchStudents,
   studentHistory,
   updateStatus,
   getNotifications,

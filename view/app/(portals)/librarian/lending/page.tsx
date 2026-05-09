@@ -1,18 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeftRight, 
   Search, 
-  User, 
+  Mail, 
   Book as BookIcon, 
   Calendar, 
-  ArrowUpRight,
+  ArrowUpRight, 
   ArrowDownLeft,
   CheckCircle2,
   Clock,
   Loader2,
-  ChevronDown
+  AlertCircle,
+  UserCheck
 } from 'lucide-react';
 import api from '@/lib/api';
 
@@ -21,7 +22,7 @@ const LendingPage = () => {
   const [loading, setLoading] = useState(false);
   
   // Search states
-  const [studentSearch, setStudentSearch] = useState('');
+  const [emailSearch, setEmailSearch] = useState('');
   const [bookSearch, setBookSearch] = useState('');
   const [studentResults, setStudentResults] = useState([]);
   const [bookResults, setBookResults] = useState([]);
@@ -31,26 +32,24 @@ const LendingPage = () => {
   const [formData, setFormData] = useState({
     userId: '',
     userName: '',
+    userEmail: '',
     bookId: '',
     bookTitle: '',
     days: '14',
     transactionId: ''
   });
 
-  // Search Students
+  // Search Students by Email
   useEffect(() => {
     const searchStudents = async () => {
-      if (studentSearch.length < 2) {
+      if (emailSearch.length < 3) {
         setStudentResults([]);
+        setShowStudentDropdown(false);
         return;
       }
       try {
-        const res = await api.get('/users/students'); // Reusing existing list, in real world use search endpoint
-        const filtered = res.data.filter((s: any) => 
-          s.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
-          s.email.toLowerCase().includes(studentSearch.toLowerCase())
-        );
-        setStudentResults(filtered);
+        const res = await api.get(`/users/students/search?query=${emailSearch}`);
+        setStudentResults(res.data);
         setShowStudentDropdown(true);
       } catch (err) {
         console.error(err);
@@ -58,22 +57,19 @@ const LendingPage = () => {
     };
     const timer = setTimeout(searchStudents, 300);
     return () => clearTimeout(timer);
-  }, [studentSearch]);
+  }, [emailSearch]);
 
   // Search Books
   useEffect(() => {
     const searchBooks = async () => {
       if (bookSearch.length < 2) {
         setBookResults([]);
+        setShowBookDropdown(false);
         return;
       }
       try {
-        const res = await api.get('/books/report');
-        const filtered = res.data.filter((b: any) => 
-          b.title.toLowerCase().includes(bookSearch.toLowerCase()) || 
-          b.isbn.includes(bookSearch)
-        );
-        setBookResults(filtered);
+        const res = await api.get(`/books/search?query=${bookSearch}`);
+        setBookResults(res.data);
         setShowBookDropdown(true);
       } catch (err) {
         console.error(err);
@@ -86,9 +82,10 @@ const LendingPage = () => {
   const handleIssue = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.userId || !formData.bookId) {
-      alert('Please select a student and a book from the list.');
+      alert('Please select a valid student and book from the results.');
       return;
     }
+
     setLoading(true);
     try {
       await api.post('/books/lend', {
@@ -96,12 +93,13 @@ const LendingPage = () => {
         bookId: formData.bookId,
         days: parseInt(formData.days)
       });
+
       alert('Book issued successfully!');
-      setFormData({ ...formData, userId: '', userName: '', bookId: '', bookTitle: '' });
-      setStudentSearch('');
+      setFormData({ ...formData, userId: '', userName: '', userEmail: '', bookId: '', bookTitle: '' });
+      setEmailSearch('');
       setBookSearch('');
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Failed to issue book');
+      alert(err.response?.data?.message || 'Transaction failed');
     } finally {
       setLoading(false);
     }
@@ -126,8 +124,8 @@ const LendingPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Lending Management</h1>
-        <p className="text-slate-500 text-xs mt-0.5">Issue books by searching for students and titles.</p>
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Lending Console</h1>
+        <p className="text-slate-500 text-xs mt-0.5">Identify students by email and search for book titles.</p>
       </div>
 
       <div className="flex p-1 bg-slate-100 rounded-xl w-fit">
@@ -152,23 +150,44 @@ const LendingPage = () => {
           <form onSubmit={activeTab === 'issue' ? handleIssue : handleReturn} className="space-y-5">
             {activeTab === 'issue' ? (
               <>
-                {/* Student Search */}
+                {/* Student Email Search */}
                 <div className="space-y-1.5 relative">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Search Student</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student Email</label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                     <input 
                       autoComplete="off"
-                      type="text"
-                      placeholder="Type student name or email..."
+                      type="email"
+                      placeholder="Enter student's exact email..."
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
-                      value={formData.userName || studentSearch}
+                      value={formData.userEmail || emailSearch}
                       onChange={(e) => {
-                        setStudentSearch(e.target.value);
-                        setFormData({...formData, userName: '', userId: ''});
+                        setEmailSearch(e.target.value);
+                        setFormData({...formData, userEmail: '', userId: '', userName: ''});
                       }}
                     />
                   </div>
+                  
+                  {/* Selection Indicator */}
+                  {formData.userId && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-lg text-[10px] text-green-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserCheck size={14} />
+                        <span>Student: <strong>{formData.userName}</strong></span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setFormData({...formData, userId: '', userName: '', userEmail: ''});
+                          setEmailSearch('');
+                        }}
+                        className="text-green-900 font-bold hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+
                   {showStudentDropdown && studentResults.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                       {studentResults.map((s: any) => (
@@ -177,9 +196,9 @@ const LendingPage = () => {
                           type="button"
                           className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs flex justify-between items-center"
                           onClick={() => {
-                            setFormData({...formData, userId: s.id, userName: s.name});
+                            setFormData({...formData, userId: s.id, userName: s.name, userEmail: s.email});
                             setShowStudentDropdown(false);
-                            setStudentSearch(s.name);
+                            setEmailSearch(s.email);
                           }}
                         >
                           <div>
@@ -189,6 +208,13 @@ const LendingPage = () => {
                           <span className="text-[8px] font-bold bg-green-50 text-green-600 px-1.5 py-0.5 rounded">SELECT</span>
                         </button>
                       ))}
+                    </div>
+                  )}
+                  
+                  {emailSearch.length >= 3 && studentResults.length === 0 && !showStudentDropdown && !formData.userId && (
+                    <div className="mt-1 p-2 bg-red-50 border border-red-100 rounded-lg text-[10px] text-red-600 flex items-center gap-2">
+                      <AlertCircle size={12} />
+                      No student found. Ensure they have registered first.
                     </div>
                   )}
                 </div>
@@ -201,7 +227,7 @@ const LendingPage = () => {
                     <input 
                       autoComplete="off"
                       type="text"
-                      placeholder="Type book title or ISBN..."
+                      placeholder="Enter book title or ISBN..."
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
                       value={formData.bookTitle || bookSearch}
                       onChange={(e) => {
@@ -210,6 +236,26 @@ const LendingPage = () => {
                       }}
                     />
                   </div>
+                  
+                  {formData.bookId && (
+                    <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BookIcon size={14} />
+                        <span>Book: <strong>{formData.bookTitle}</strong></span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setFormData({...formData, bookId: '', bookTitle: ''});
+                          setBookSearch('');
+                        }}
+                        className="text-blue-900 font-bold hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+
                   {showBookDropdown && bookResults.length > 0 && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                       {bookResults.map((b: any) => (
@@ -261,7 +307,7 @@ const LendingPage = () => {
                   <input 
                     required
                     type="text"
-                    placeholder="Enter transaction ID to return..."
+                    placeholder="Enter transaction ID..."
                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
                     value={formData.transactionId}
                     onChange={(e) => setFormData({...formData, transactionId: e.target.value})}
@@ -275,7 +321,7 @@ const LendingPage = () => {
               type="submit"
               className="w-full bg-leaf text-white py-3.5 rounded-xl font-bold text-xs hover:bg-leaf/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : activeTab === 'issue' ? 'Issue Book' : 'Process Return'}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : activeTab === 'issue' ? 'Confirm Lending' : 'Process Return'}
             </button>
           </form>
         </div>
@@ -283,20 +329,20 @@ const LendingPage = () => {
         <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
           <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
             <CheckCircle2 size={16} className="text-primary" />
-            Librarian Guidelines
+            Lending Security
           </h3>
           <div className="space-y-4">
             <div className="flex gap-3 text-[11px] text-slate-500 leading-relaxed">
-              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5 font-mono">1</div>
-              <p>Type the first few letters of a student's name to select them from the dropdown.</p>
+              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5">1</div>
+              <p>Lending is strictly tied to registered student emails for accountability and history tracking.</p>
             </div>
             <div className="flex gap-3 text-[11px] text-slate-500 leading-relaxed">
-              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5 font-mono">2</div>
-              <p>Search for books by title or ISBN. Books that are out of stock cannot be issued.</p>
+              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5">2</div>
+              <p>Search for students by entering their official email address. If they aren't found, they must register first.</p>
             </div>
             <div className="flex gap-3 text-[11px] text-slate-500 leading-relaxed">
-              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5 font-mono">3</div>
-              <p>Standard lending duration is 14 days, but can be adjusted manually.</p>
+              <div className="w-5 h-5 rounded bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 mt-0.5">3</div>
+              <p>All transactions are logged with timestamps and due dates for system-wide notifications.</p>
             </div>
           </div>
         </div>

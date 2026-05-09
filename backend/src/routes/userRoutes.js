@@ -36,6 +36,7 @@ router.put('/notifications/:id/read', userController.markNotificationRead);
 
 // Librarian specific routes
 router.get('/students', authorize('Librarian'), userController.listStudents);
+router.get('/students/search', authorize('Librarian'), userController.searchStudents);
 router.get('/students/:id/history', authorize('Librarian'), userController.studentHistory);
 router.put('/students/:id/status', authorize('Librarian'), userController.updateStatus);
 
