@@ -91,6 +91,50 @@ const history = async (req, res) => {
   }
 };
 
+const activity = async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+    const activityData = await bookService.getActivityData(parseInt(days));
+    res.status(200).json(activityData);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const getBorrowedBooks = async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ message: 'Student email is required' });
+    const result = await bookService.getStudentBorrowedBooks(email);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const returnByEmail = async (req, res) => {
+  try {
+    const { studentEmail, bookId } = req.body;
+    if (!studentEmail || !bookId) {
+      return res.status(400).json({ message: 'studentEmail and bookId are required' });
+    }
+    await bookService.returnBookByStudentEmail(studentEmail, bookId);
+    res.status(200).json({ message: 'Book returned successfully' });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+const getMyBorrowedBooks = async (req, res) => {
+  try {
+    const userEmail = req.user.email; // From authenticate middleware
+    const result = await bookService.getStudentBorrowedBooks(userEmail);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   create,
   update,
@@ -101,4 +145,8 @@ module.exports = {
   returnBook,
   reserve,
   history,
+  activity,
+  getBorrowedBooks,
+  returnByEmail,
+  getMyBorrowedBooks,
 };

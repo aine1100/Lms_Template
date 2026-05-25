@@ -72,6 +72,100 @@ router.post('/reserve', bookController.reserve);
  */
 router.get('/:id/history', authorize('Librarian'), bookController.history);
 
+/**
+ * @swagger
+ * /api/books/activity/overview:
+ *   get:
+ *     summary: Get library activity data (books issued and returned)
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *           default: 7
+ *         description: Number of days to retrieve activity for
+ *     responses:
+ *       200:
+ *         description: Activity data aggregated by date
+ */
+router.get('/activity/overview', authorize('Librarian'), bookController.activity);
+
+/**
+ * @swagger
+ * /api/books/borrowed:
+ *   get:
+ *     summary: Get student's currently borrowed books by email
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: email
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Student's email address
+ *     responses:
+ *       200:
+ *         description: List of student's borrowed books with transaction details
+ */
+router.get('/borrowed', authorize('Librarian'), bookController.getBorrowedBooks);
+
+/**
+ * @swagger
+ * /api/books/return-by-email:
+ *   post:
+ *     summary: Return a book by student email and book ID
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [studentEmail, bookId]
+ *             properties:
+ *               studentEmail: { type: string }
+ *               bookId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Book returned successfully
+ */
+router.post('/return-by-email', authorize('Librarian'), bookController.returnByEmail);
+
+/**
+ * @swagger
+ * /api/books/my-borrowed:
+ *   get:
+ *     summary: Get current user's borrowed books (Student)
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of student's borrowed books with transaction details
+ */
+router.get('/my-borrowed', bookController.getMyBorrowedBooks);
+
+/**
+ * @swagger
+ * /api/books/report:
+ *   get:
+ *     summary: Get all books report
+ *     tags: [Books]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all books
+ */
+router.get('/report', bookController.report);
+
 // CRUD routes (Librarian only)
 router.use(authorize('Librarian'));
 
@@ -103,20 +197,6 @@ router.use(authorize('Librarian'));
  *         description: Book created successfully
  */
 router.post('/', bookController.create);
-
-/**
- * @swagger
- * /api/books/report:
- *   get:
- *     summary: Get all books report
- *     tags: [Books]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: List of all books
- */
-router.get('/report', bookController.report);
 
 /**
  * @swagger

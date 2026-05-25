@@ -26,8 +26,10 @@ const LendingPage = () => {
   const [bookSearch, setBookSearch] = useState('');
   const [studentResults, setStudentResults] = useState([]);
   const [bookResults, setBookResults] = useState([]);
+  const [borrowedBooks, setBorrowedBooks] = useState([]);
   const [showStudentDropdown, setShowStudentDropdown] = useState(false);
   const [showBookDropdown, setShowBookDropdown] = useState(false);
+  const [showBorrowedDropdown, setShowBorrowedDropdown] = useState(false);
 
   const [formData, setFormData] = useState({
     userId: '',
@@ -36,7 +38,10 @@ const LendingPage = () => {
     bookId: '',
     bookTitle: '',
     days: '14',
-    transactionId: ''
+    returnStudentEmail: '',
+    returnStudentName: '',
+    returnBookId: '',
+    returnBookTitle: ''
   });
 
   // Search Students by Email
@@ -58,6 +63,32 @@ const LendingPage = () => {
     const timer = setTimeout(searchStudents, 300);
     return () => clearTimeout(timer);
   }, [emailSearch]);
+
+  // Search for borrowed books when return email is entered
+  useEffect(() => {
+    const searchBorrowedBooks = async () => {
+      if (formData.returnStudentEmail.length < 3) {
+        setBorrowedBooks([]);
+        setShowBorrowedDropdown(false);
+        return;
+      }
+      try {
+        const res = await api.get(`/books/borrowed?email=${formData.returnStudentEmail}`);
+        if (res.data.books && res.data.books.length > 0) {
+          setBorrowedBooks(res.data.books);
+          setShowBorrowedDropdown(true);
+        } else {
+          setBorrowedBooks([]);
+          setShowBorrowedDropdown(false);
+        }
+      } catch (err) {
+        console.error(err);
+        setBorrowedBooks([]);
+      }
+    };
+    const timer = setTimeout(searchBorrowedBooks, 300);
+    return () => clearTimeout(timer);
+  }, [formData.returnStudentEmail]);
 
   // Search Books
   useEffect(() => {
@@ -107,13 +138,19 @@ const LendingPage = () => {
 
   const handleReturn = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.returnStudentEmail || !formData.returnBookId) {
+      alert('Please select a valid student and book to return.');
+      return;
+    }
     setLoading(true);
     try {
-      await api.post('/books/return', {
-        transactionId: formData.transactionId
+      await api.post('/books/return-by-email', {
+        studentEmail: formData.returnStudentEmail,
+        bookId: formData.returnBookId
       });
       alert('Book returned successfully!');
-      setFormData({ ...formData, transactionId: '' });
+      setFormData({ ...formData, returnStudentEmail: '', returnStudentName: '', returnBookId: '', returnBookTitle: '' });
+      setBorrowedBooks([]);
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to return book');
     } finally {
@@ -162,8 +199,11 @@ const LendingPage = () => {
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
                       value={formData.userEmail || emailSearch}
                       onChange={(e) => {
-                        setEmailSearch(e.target.value);
-                        setFormData({...formData, userEmail: '', userId: '', userName: ''});
+                        const value = e.target.value;
+                        setEmailSearch(value);
+                        if (value === '') {
+                          setFormData({...formData, userEmail: '', userId: '', userName: ''});
+                        }
                       }}
                     />
                   </div>
@@ -231,8 +271,11 @@ const LendingPage = () => {
                       className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
                       value={formData.bookTitle || bookSearch}
                       onChange={(e) => {
-                        setBookSearch(e.target.value);
-                        setFormData({...formData, bookTitle: '', bookId: ''});
+                        const value = e.target.value;
+                        setBookSearch(value);
+                        if (value === '') {
+                          setFormData({...formData, bookTitle: '', bookId: ''});
+                        }
                       }}
                     />
                   </div>
@@ -300,24 +343,120 @@ const LendingPage = () => {
                 </div>
               </>
             ) : (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction ID</label>
-                <div className="relative">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
-                  <input 
-                    required
-                    type="text"
-                    placeholder="Enter transaction ID..."
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
-                    value={formData.transactionId}
-                    onChange={(e) => setFormData({...formData, transactionId: e.target.value})}
-                  />
+              <>
+                {/* Student Email Search for Return */}
+                <div className="space-y-1.5 relative">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Student Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                    <input 
+                      autoComplete="off"
+                      type="email"
+                      placeholder="Enter student's email..."
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs"
+                      value={formData.returnStudentEmail}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({...formData, returnStudentEmail: value});
+                        if (value === '') {
+                          setFormData(prev => ({...prev, returnBookId: '', returnBookTitle: ''}));
+                          setBorrowedBooks([]);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {formData.returnStudentName && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-100 rounded-lg text-[10px] text-green-700 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UserCheck size={14} />
+                        <span>Student: <strong>{formData.returnStudentName}</strong></span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setFormData({...formData, returnStudentEmail: '', returnStudentName: '', returnBookId: '', returnBookTitle: ''});
+                          setBorrowedBooks([]);
+                        }}
+                        className="text-green-900 font-bold hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                {/* Borrowed Books Dropdown */}
+                {borrowedBooks.length > 0 && (
+                  <div className="space-y-1.5 relative">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select Book to Return</label>
+                    <div className="relative">
+                      <BookIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+                      <input 
+                        autoComplete="off"
+                        type="text"
+                        placeholder="Choose a borrowed book..."
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:bg-white focus:border-primary/20 outline-none text-xs cursor-pointer"
+                        value={formData.returnBookTitle}
+                        onFocus={() => setShowBorrowedDropdown(true)}
+                        readOnly
+                      />
+                    </div>
+
+                    {formData.returnBookId && (
+                      <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg text-[10px] text-blue-700 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <BookIcon size={14} />
+                          <span>Book: <strong>{formData.returnBookTitle}</strong></span>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setFormData({...formData, returnBookId: '', returnBookTitle: ''});
+                          }}
+                          className="text-blue-900 font-bold hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    )}
+
+                    {showBorrowedDropdown && borrowedBooks.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-slate-100 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                        {borrowedBooks.map((book: any) => (
+                          <button
+                            key={book.transactionId}
+                            type="button"
+                            className="w-full text-left px-4 py-3 hover:bg-slate-50 text-xs flex justify-between items-center border-b border-slate-50 last:border-b-0"
+                            onClick={() => {
+                              setFormData({...formData, returnBookId: book.bookId, returnBookTitle: book.bookTitle});
+                              setShowBorrowedDropdown(false);
+                            }}
+                          >
+                            <div>
+                              <p className="font-bold text-slate-800">{book.bookTitle}</p>
+                              <p className="text-[10px] text-slate-400">ISBN: {book.bookISBN}</p>
+                              <p className="text-[10px] text-amber-600 mt-1">Due: {new Date(book.dueDate).toLocaleDateString()}</p>
+                            </div>
+                            <span className="text-[8px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">RETURN</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {formData.returnStudentEmail && borrowedBooks.length === 0 && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 flex items-start gap-2">
+                    <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                    <p>No borrowed books found for this student or student not found.</p>
+                  </div>
+                )}
+              </>
             )}
 
             <button 
-              disabled={loading || (activeTab === 'issue' && (!formData.userId || !formData.bookId))}
+              disabled={loading || (activeTab === 'issue' && (!formData.userId || !formData.bookId)) || (activeTab === 'return' && (!formData.returnStudentEmail || !formData.returnBookId))}
               type="submit"
               className="w-full bg-leaf text-white py-3.5 rounded-xl font-bold text-xs hover:bg-leaf/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:grayscale"
             >
