@@ -69,7 +69,7 @@ const loginUser = async (email, password) => {
   if (!user.isVerified) throw new Error('Email not verified');
   if (user.status !== 'Active') throw new Error('Account is suspended');
 
-  const accessToken = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
+  const accessToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
   const refreshToken = jwt.sign({ id: user.id }, REFRESH_SECRET, { expiresIn: '7d' });
 
   return { accessToken, refreshToken, user: { id: user.id, name: user.name, role: user.role } };

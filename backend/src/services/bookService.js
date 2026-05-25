@@ -1,8 +1,9 @@
-const { eq, and, desc } = require('drizzle-orm');
+const { eq, and, desc ,gte,ilike ,or} = require('drizzle-orm');
 const { db } = require('../config/db');
 const { books, transactions, users, notifications, reservations } = require('../models/schema');
 const { sendNotification } = require('../utils/socket');
 const { sendEmail } = require('../utils/email');
+
 
 const createBook = async (bookData) => {
   const [newBook] = await db.insert(books).values(bookData).returning();
@@ -24,7 +25,6 @@ const getBooksReport = async () => {
 };
 
 const searchBooks = async (query) => {
-  const { ilike, or } = require('drizzle-orm');
   const searchPattern = `%${query}%`;
   return await db.select().from(books).where(
     or(
@@ -102,6 +102,70 @@ const returnBook = async (transactionId) => {
   return true;
 };
 
+const getStudentBorrowedBooks = async (studentEmail) => {
+  const [user] = await db.select().from(users).where(eq(users.email, studentEmail));
+  if (!user) throw new Error('Student not found');
+
+  const borrowedTransactions = await db.select({
+    transactionId: transactions.id,
+    bookId: books.id,
+    bookTitle: books.title,
+    bookAuthor: books.author,
+    bookISBN: books.isbn,
+    issueDate: transactions.issueDate,
+    dueDate: transactions.dueDate,
+    status: transactions.status
+  })
+  .from(transactions)
+  .leftJoin(books, eq(transactions.bookId, books.id))
+  .where(
+    and(
+      eq(transactions.userId, user.id),
+      eq(transactions.status, 'Borrowed')
+    )
+  )
+  .orderBy(desc(transactions.issueDate));
+
+  return {
+    student: { id: user.id, name: user.name, email: user.email },
+    books: borrowedTransactions
+  };
+};
+
+const returnBookByStudentEmail = async (studentEmail, bookId) => {
+  const [user] = await db.select().from(users).where(eq(users.email, studentEmail));
+  if (!user) throw new Error('Student not found');
+
+  const [transaction] = await db.select().from(transactions).where(
+    and(
+      eq(transactions.userId, user.id),
+      eq(transactions.bookId, bookId),
+      eq(transactions.status, 'Borrowed')
+    )
+  );
+
+  if (!transaction) throw new Error('No active borrowed transaction found for this book');
+
+  const [book] = await db.select().from(books).where(eq(books.id, bookId));
+
+  // Update transaction
+  await db.update(transactions).set({
+    returnDate: new Date(),
+    status: 'Returned'
+  }).where(eq(transactions.id, transaction.id));
+
+  // Update available quantity
+  await db.update(books).set({
+    availableQuantity: (parseInt(book.availableQuantity) + 1).toString()
+  }).where(eq(books.id, bookId));
+
+  const message = `Book "${book.title}" has been returned.`;
+  await db.insert(notifications).values({ userId: user.id, message, type: 'Info' });
+  sendNotification(user.id, message, 'Info');
+
+  return true;
+}
+
 const reserveBook = async (bookId, userId) => {
   const [book] = await db.select().from(books).where(eq(books.id, bookId));
   if (!book) throw new Error('Book not found');
@@ -138,6 +202,54 @@ const getBookLendHistory = async (bookId) => {
   .orderBy(desc(transactions.issueDate));
 };
 
+const getActivityData = async (days = 7) => {
+  
+  // Get date from 'days' ago
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - days + 1);
+  startDate.setHours(0, 0, 0, 0);
+
+  // Fetch all transactions within the date range
+  const allTransactions = await db.select().from(transactions).where(
+    gte(transactions.issueDate, startDate)
+  );
+
+  // Aggregate data by date
+  const activityMap = new Map();
+
+  // Initialize all dates with 0 values
+  for (let i = 0; i < days; i++) {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + i);
+    const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    activityMap.set(dateStr, { date: dateStr, issued: 0, returned: 0 });
+  }
+
+  // Count issued and returned books
+  allTransactions.forEach(txn => {
+    const issueDate = new Date(txn.issueDate);
+    const issueDateStr = issueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    
+    if (activityMap.has(issueDateStr)) {
+      const entry = activityMap.get(issueDateStr);
+      entry.issued += 1;
+    }
+
+    if (txn.returnDate) {
+      const returnDate = new Date(txn.returnDate);
+      const returnDateStr = returnDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      
+      if (activityMap.has(returnDateStr)) {
+        const entry = activityMap.get(returnDateStr);
+        entry.returned += 1;
+      }
+    }
+  });
+
+  // Convert map to array and sort by date
+  return Array.from(activityMap.values());
+};
+
 module.exports = {
   createBook,
   updateBook,
@@ -148,4 +260,7 @@ module.exports = {
   returnBook,
   reserveBook,
   getBookLendHistory,
-};
+  getActivityData,
+  getStudentBorrowedBooks,
+  returnBookByStudentEmail
+}

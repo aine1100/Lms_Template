@@ -9,13 +9,16 @@ import {
   TrendingUp,
   Clock,
   AlertCircle,
-  Loader2
+  Loader2,
+  Calendar
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '@/lib/api';
+import { ActivityChart, LineActivityChart } from '@/components/ActivityChart';
 
 const DashboardPage = () => {
   const [stats, setStats] = useState<any>(null);
+  const [activityData, setActivityData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,6 +26,7 @@ const DashboardPage = () => {
       try {
         const booksRes = await api.get('/books/report');
         const studentsRes = await api.get('/users/students');
+        const activityRes = await api.get('/books/activity/overview?days=7');
         
         const totalBooks = booksRes.data.length;
         const outOfStock = booksRes.data.filter((b: any) => parseInt(b.availableQuantity) === 0).length;
@@ -35,8 +39,12 @@ const DashboardPage = () => {
           { name: 'Out of Stock', value: outOfStock, icon: AlertCircle, color: 'text-red-600', bg: 'bg-red-50' },
           { name: 'Total Members', value: totalStudents, icon: Users, color: 'text-slate-600', bg: 'bg-slate-50' },
         ]);
+
+        // Set activity data from backend
+        setActivityData(activityRes.data || []);
       } catch (err) {
         console.error('Dashboard fetch failed', err);
+        setActivityData([]);
       } finally {
         setLoading(false);
       }
@@ -85,11 +93,14 @@ const DashboardPage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6">
-          <h2 className="text-sm font-bold text-slate-800 mb-6">Library Health Overview</h2>
-          <div className="h-64 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-50 rounded-2xl">
-            <BookOpen size={48} className="mb-2 opacity-50" />
-            <p className="text-xs font-medium">Activity Chart Visualization</p>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-sm font-bold text-slate-800">Library Activity Overview</h2>
+            <span className="text-xs text-slate-500 flex items-center gap-1">
+              <Calendar size={14} />
+              Last 7 days
+            </span>
           </div>
+          <ActivityChart data={activityData} height={320} />
         </div>
 
         <div className="space-y-6">

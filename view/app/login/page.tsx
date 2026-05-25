@@ -30,7 +30,7 @@ const LoginPage = () => {
       if (user.role === 'Librarian') {
         router.push('/librarian/dashboard');
       } else {
-        router.push('/student/dashboard');
+        router.push('/student/my-books');
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Invalid email or password');
